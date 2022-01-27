@@ -1,6 +1,7 @@
-const columns = [0, 1, 2, 3, 4];
-const rows = ['0', '1', '2', '3', '4', '5'];
-const words = [
+const /** !Array<number> */ COLUMNS = [0, 1, 2, 3, 4];
+const /** number */ COEFFICIENT = 1;
+const /** !Array<string> */ ROWS = ['0', '1', '2', '3', '4', '5'];
+const /** !Array<string> */ VALID_WORDS = [
   'aahed', 'aalii', 'aargh', 'aarti', 'abaca', 'abaci', 'aback', 'abacs',
   'abaft', 'abaka', 'abamp', 'aband', 'abase', 'abash', 'abask', 'abate',
   'abaya', 'abbas', 'abbed', 'abbes', 'abbey', 'abbot', 'abcee', 'abeam',
@@ -1622,7 +1623,7 @@ const words = [
   'zoner', 'zones', 'zonks', 'zooea', 'zooey', 'zooid', 'zooks', 'zooms',
   'zoons', 'zooty', 'zoppa', 'zoppo', 'zoril', 'zoris', 'zorro', 'zouks',
   'zowee', 'zowie', 'zulus', 'zupan', 'zupas', 'zuppa', 'zurfs', 'zuzim',
-  'zygal', 'zygon', 'zymes', 'zymic'
+  'zygal', 'zygon', 'zymes', 'zymic',
 ];
 
 function tileClick(tile) {
@@ -1644,7 +1645,7 @@ function tileClick(tile) {
   }
 }
 
-function toast(row) {
+function toast(/** string */ row) {
   let div = document.getElementById('row' + row);
   let toaster = document.getElementById('toaster');
   div.setAttribute('invalid', 'invalid');
@@ -1655,29 +1656,32 @@ function toast(row) {
   }, 2000);
 }
 
-function computeOccurrences(candidates, appeared) {
+function computeOccurrences(candidates) {
   return candidates.reduce((occurences, word) => {
     const unique = new Set(word);
     for (const value of unique.values()) {
-      if (appeared.has(value)) {
-        continue;
-      }
       if (occurences.has(value)) {
         occurences.set(value, occurences.get(value) + 1);
       } else {
-        occurences.set(value, 0);
+        occurences.set(value, 1);
       }
     }
     return occurences;
   }, new Map());
 }
 
-function argsortOccurences(occurences) {
-  const sorted = [...occurences.entries()].sort((a, b) => b[1] - a[1]);
-  return new Map([...sorted.reverse().map((elem, index) => [elem[0], index])]);
+function argsortOccurences(occurences, candidateCount) {
+  const sorted = [...occurences.values()].sort((a, b) => a - b);
+  const scores = new Map();
+  for (const [key, value] of occurences.entries()) {
+    if (value !== candidateCount) {
+      scores.set(key, sorted.indexOf(value) + 1);
+    }
+  }
+  return scores;
 }
 
-function computeScore(word, scores) {
+function computeScore1(word, scores) {
   const unique = new Set(word);
   let total = 0;
   for (const letter of unique.values()) {
@@ -1688,27 +1692,87 @@ function computeScore(word, scores) {
   return total;
 }
 
-function suggestBestWord(candidates, appeared) {
-  const occurences = computeOccurrences(candidates, appeared);
-  const scores = argsortOccurences(occurences);
-  return words.reduce((previous, current, index) => {
-    const currentScore = computeScore(current, scores);
-    if (index === 1) {
-      const previousScore = computeScore(previous, scores);
-      if (previousScore < currentScore) {
-        return [current, currentScore];
+function computeScore2(word, present, wrong) {
+  let total = 0;
+  [...word].forEach((letter, index) => {
+    if (present.has(letter)) {
+      if (!wrong.has(index) || !wrong.get(index).has(letter)) {
+        total += 1;
       }
-      return [previous, previousScore];
     }
-    if (previous[1] < currentScore) {
-      return [current, currentScore];
-    }
-    return previous;
-  })[0];
+  });
+  return total;
 }
 
-function updateCandidates(candidates, absent, correct, present, wrong) {
-  candidates = candidates.filter(word => {
+function computeScore(word, scores, present, wrong) {
+  const score1 = computeScore1(word, scores);
+  const score2 = computeScore2(word, present, wrong);
+  return score1 * COEFFICIENT + score2;
+}
+
+function getStates(word, candidates) {
+  const states = new Array(COLUMNS.length).fill('correct');
+  const tbds = new Set();
+  for (const candidate of candidates) {
+    [...word].forEach((letter, index) => {
+      switch (states[index]) {
+        case 'correct':
+          if (letter === candidate[index]) {
+            break;
+          }
+          states[index] = 'present';
+        case 'present':
+          if (candidate.indexOf(letter) === -1) {
+            states[index] = 'tbd';
+            tbds.add(index);
+          }
+          break;
+        default:
+          break;
+      }
+    });
+    if (tbds.length === COLUMNS.length) {
+      break;
+    }
+  }
+  return states;
+}
+
+function showWord(word, states) {
+  if (typeof states === 'undefined') {
+    states = new Array(COLUMNS.length).fill('tbd');
+  }
+  for (const row of ROWS) {
+    const div = document.getElementById('row' + row);
+    if (!div.hasAttribute('full')) {
+      COLUMNS.forEach((column, index) => {
+        const tile = document.getElementById('tile' + row + column);
+        console.assert(tile.getAttribute('data-state') === 'empty');
+        tile.setAttribute('data-state', states[index]);
+        tile.setAttribute('data-animation', 'flip-out');
+        tile.innerHTML = word[index];
+      });
+      break;
+    }
+  }
+}
+
+function suggestBestWord(occurences, candidateCount, present, wrong) {
+  const scores = argsortOccurences(occurences, candidateCount);
+  let bestWord = VALID_WORDS[0];
+  let bestScore = computeScore(bestWord, scores, present, wrong);
+  for (const word of VALID_WORDS.slice(1)) {
+    const currentScore = computeScore(word, scores, present, wrong);
+    if (bestScore < currentScore) {
+      bestWord = word;
+      bestScore = currentScore;
+    }
+  }
+  return bestWord;
+}
+
+function filterCandidates(absent, correct, present, wrong) {
+  return VALID_WORDS.filter((word) => {
     let presence_check = new Set(present);
     let result = Array.prototype.every.call(word, (letter, index) => {
       if (absent.has(letter)) {
@@ -1728,15 +1792,10 @@ function updateCandidates(candidates, absent, correct, present, wrong) {
     };
     return false;
   });
-  return candidates;
 }
 
-function parseRow(row) {
-  let absent = new Set();
-  let correct = new Map();
-  let present = new Set();
-  let wrong = new Map();
-  columns.forEach(column => {
+function parseRow(row, absent, correct, present, wrong) {
+  for (const column of COLUMNS) {
     let tile = document.getElementById('tile' + row + column);
     let letter = tile.innerHTML;
     switch (tile.getAttribute('data-state')) {
@@ -1748,83 +1807,100 @@ function parseRow(row) {
         break;
       case 'present':
         present.add(letter);
-        wrong.set(column, letter);
+        if (!wrong.has(column)) {
+          wrong.set(column, new Set());
+        }
+        wrong.get(column).add(letter);
         break;
       default:
         toast(row);
         throw new Error('RowNotFull', 'Color all the tiles');
     }
-  });
-  return [absent, correct, present, wrong];
+  }
 }
 
 function submit() {
-  let appeared = new Set();
-  let candidates = words;
-  rows.every(row => {
+  const /** !Set<string> */ absent = new Set();
+  const /** !Map<number, string> */ correct = new Map();
+  const /** !Set<string> */ present = new Set();
+  const /** !Map<number, !Set<string>> */ wrong = new Map();
+  for (const row of ROWS) {
+    parseRow(row, absent, correct, present, wrong);
     const div = document.getElementById('row' + row);
-    const [absent, correct, present, wrong] = parseRow(row);
-    candidates = updateCandidates(
-      candidates, absent, correct, present, wrong);
-    for (const value of absent.values()) {
-      appeared.add(value);
+    if (!div.hasAttribute('full')) {
+      div.setAttribute('full', 'full');
+      break;
     }
-    for (const value of correct.values()) {
-      appeared.add(value);
-    }
-    for (const value of present.values()) {
-      appeared.add(value);
-    }
-    if (div.hasAttribute('full')) {
-      return true;
-    }
-    div.setAttribute('full', 'full');
-    return false;
-  });
-  console.log(suggestBestWord(candidates, appeared));
+  }
+  const candidates = filterCandidates(absent, correct, present, wrong);
   console.log(candidates);
+  const occurences = computeOccurrences(candidates);
+  let suggestion;
+  if (candidates.length === 1) {
+    suggestion = candidates[0];
+  } else {
+    suggestion = suggestBestWord(occurences, candidates.length, present, wrong);
+  }
+  const states = getStates(suggestion, candidates);
+  showWord(suggestion, states);
+  const correctSet = new Set(correct.values());
+  for (const key of document.getElementsByTagName('button')) {
+    const value = key.getAttribute('data-key');
+    if (value === '←' || value === '↵') {
+      continue;
+    }
+    let newState = 'tbd';
+    if (correctSet.has(value)) {
+      newState = 'correct';
+    } else if (occurences.get(value) === candidates.length) {
+      newState = 'present';
+    } else if (!occurences.has(value)) {
+      newState = 'absent';
+    }
+    if (key.getAttribute('data-state') !== newState) {
+      key.setAttribute('data-state', newState);
+      key.setAttribute('class', 'fade');
+    } else {
+      key.removeAttribute('class');
+    }
+  }
 }
 
 function typeBackSpace() {
-  rows.every(row => {
+  for (const row of ROWS) {
     const div = document.getElementById('row' + row);
-    if (div.hasAttribute('full')) {
-      return true;
-    }
-    let oldtile = null;
-    columns.forEach(column => {
-      const tile = document.getElementById('tile' + row + column);
-      if (tile.getAttribute('data-state') === 'empty') {
-        return false;
+    if (!div.hasAttribute('full')) {
+      let oldtile = undefined;
+      for (const column of COLUMNS) {
+        const tile = document.getElementById('tile' + row + column);
+        if (tile.getAttribute('data-state') === 'empty') {
+          break;
+        }
+        oldtile = tile;
       }
-      oldtile = tile;
-      return true;
-    });
-    if (oldtile !== null) {
-      oldtile.innerHTML = '';
-      oldtile.setAttribute('data-state', 'empty');
-    };
-    return false;
-  });
+      if (typeof oldtile !== 'undefined') {
+        oldtile.innerHTML = '';
+        oldtile.setAttribute('data-state', 'empty');
+      }
+      return;
+    }
+  }
 }
 
 function typeLetter(data) {
-  rows.every(row => {
+  for (const row of ROWS) {
     const div = document.getElementById('row' + row);
-    if (div.hasAttribute('full')) {
-      return true;
-    }
-    columns.every(column => {
-      const tile = document.getElementById('tile' + row + column);
-      if (tile.getAttribute('data-state') === 'empty') {
-        tile.setAttribute('data-state', 'tbd');
-        tile.innerHTML = data;
-        return false;
+    if (!div.hasAttribute('full')) {
+      for (const column of COLUMNS) {
+        const tile = document.getElementById('tile' + row + column);
+        if (tile.getAttribute('data-state') === 'empty') {
+          tile.setAttribute('data-state', 'tbd');
+          tile.innerHTML = data;
+          return;
+        }
       }
-      return true;
-    });
-    return false;
-  });
+    }
+  }
 }
 
 function typeKeyboard(key) {
@@ -1841,30 +1917,27 @@ function typeKeyboard(key) {
   }
 }
 
-window.onload = function() {
+window.onload = () => {
   const board = document.getElementById('board');
-  rows.forEach((row) => {
+  for (const row of ROWS) {
     const div = document.createElement('div');
     div.setAttribute('class', 'game-row');
     div.setAttribute('id', 'row' + row);
-    columns.forEach((column) => {
+    for (const column of COLUMNS) {
       const tile = document.createElement('div');
       const id = 'tile' + row + column
       tile.setAttribute('class', 'tile');
       tile.setAttribute('id', id);
       tile.setAttribute('data-state', 'empty');
-      tile.onclick = () => {
-        tileClick(tile);
-      };
+      tile.onclick = () => void tileClick(tile);
       div.append(tile);
-    })
+    }
     board.append(div);
-  });
-  const buttons = document.getElementsByTagName('button');
-  Array.prototype.forEach.call(buttons, (key) => {
-    key.onclick = () => {
-      typeKeyboard(key);
-    };
-  });
-  console.log(suggestBestWord(words, new Set()));
+  }
+  for (const key of document.getElementsByTagName('button')) {
+    key.setAttribute('data-state', 'tbd');
+    key.onclick = () => void typeKeyboard(key);
+  }
+  const occurences = computeOccurrences(VALID_WORDS, new Set());
+  showWord(suggestBestWord(occurences, VALID_WORDS.length, new Set(), new Map()));
 };
