@@ -1631,7 +1631,7 @@ let /** !Array<string> */ candidates = VALID_WORDS;
 let /** !Array<!Array<number>> */ hintMatrix;
 
 async function getHintMatrix() {
-  const response = await fetch('hint_matrix.json', {cache: 'force-cache'});
+  const response = await fetch('./hint_matrix.json', {cache: 'force-cache'});
   hintMatrix = await response.json();
 }
 
