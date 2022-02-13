@@ -2,6 +2,7 @@ const /** !Array<number> */ COLUMNS = [0, 1, 2, 3, 4];
 const /** string */ CHARACTERS = 'abcdefghijklmnopqrstuvwxyz';
 const /** number */ COEFFICIENT = 2;
 const /** !Array<string> */ ROWS = ['0', '1', '2', '3', '4', '5'];
+const /** number */ PARTS = 12;
 const /** !Array<string> */ VALID_WORDS = [
   'which', 'their', 'there', 'other', 'would', 'these', 'about', 'first',
   'under', 'state', 'after', 'could', 'where', 'shall', 'those', 'being',
@@ -1628,11 +1629,12 @@ const /** !Array<string> */ VALID_WORDS = [
 ];
 
 let /** !Array<string> */ candidates = VALID_WORDS;
-let /** !Array<!Array<number>> */ hintMatrix;
+let /** !Array<!Array<number>> */ hintMatrix = [];
 
-async function getHintMatrix() {
-  const response = await fetch('./hint_matrix.json', {cache: 'force-cache'});
-  hintMatrix = await response.json();
+async function getHintMatrix(part) {
+  const response = await fetch(
+    './hint_matrix_' + part + '.json', {cache: 'force-cache'});
+  return await response.json();
 }
 
 function incrementMap(map, key, initial) {
@@ -1893,8 +1895,7 @@ function typeLetter(data) {
 }
 
 function typeKeyboard(key) {
-  const data = key.getAttribute('data-key')
-  switch (data) {
+  switch (key) {
     case '←':
       typeBackSpace();
       break;
@@ -1902,31 +1903,51 @@ function typeKeyboard(key) {
       submit();
       break;
     default:
-      typeLetter(data);
+      typeLetter(key);
   }
 }
 
-getHintMatrix().then(() => {
-  const board = document.getElementById('board');
-  for (const row of ROWS) {
-    const div = document.createElement('div');
-    div.setAttribute('class', 'game-row');
-    div.setAttribute('id', 'row' + row);
-    for (const column of COLUMNS) {
-      const tile = document.createElement('div');
-      const id = 'tile' + row + column
-      tile.setAttribute('class', 'tile');
-      tile.setAttribute('id', id);
-      tile.setAttribute('data-state', 'empty');
-      tile.onclick = () => void tileClick(tile);
-      div.append(tile);
-    }
-    board.append(div);
+document.addEventListener('keydown', (event) => {
+  const keyName = event.key;
+  switch (keyName) {
+    case 'Backspace':
+      typeBackSpace();
+      break;
+    case 'Enter':
+      submit();
+      break;
+    default:
+      if (keyName.length === 1 && CHARACTERS.indexOf(keyName) !== -1) {
+        typeLetter(keyName);
+      }
   }
-  for (const key of document.getElementsByTagName('button')) {
-    key.setAttribute('data-state', 'tbd');
-    key.onclick = () => void typeKeyboard(key);
-  }
-  const states = new Array(COLUMNS.length).fill('tbd');
-  showWord('tares', states);
 });
+
+Promise.all(Array.from({length: PARTS}, (_, i) => i).map(getHintMatrix)).then(
+  (hintMatrixParts) => {
+    for (const part of hintMatrixParts) {
+      hintMatrix = hintMatrix.concat(part);
+    }
+    const board = document.getElementById('board');
+    for (const row of ROWS) {
+      const div = document.createElement('div');
+      div.setAttribute('class', 'game-row');
+      div.setAttribute('id', 'row' + row);
+      for (const column of COLUMNS) {
+        const tile = document.createElement('div');
+        const id = 'tile' + row + column
+        tile.setAttribute('class', 'tile');
+        tile.setAttribute('id', id);
+        tile.setAttribute('data-state', 'empty');
+        tile.onclick = () => void tileClick(tile);
+        div.append(tile);
+      }
+      board.append(div);
+    }
+    for (const key of document.getElementsByTagName('button')) {
+      key.setAttribute('data-state', 'tbd');
+      key.onclick = () => void typeKeyboard(key.getAttribute('data-key'));
+    }
+    const states = new Array(COLUMNS.length).fill('tbd');
+    showWord('tares', states);
+  });
