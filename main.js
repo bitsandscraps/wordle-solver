@@ -1907,22 +1907,6 @@ function typeKeyboard(key) {
   }
 }
 
-document.addEventListener('keydown', (event) => {
-  const keyName = event.key;
-  switch (keyName) {
-    case 'Backspace':
-      typeBackSpace();
-      break;
-    case 'Enter':
-      submit();
-      break;
-    default:
-      if (keyName.length === 1 && CHARACTERS.indexOf(keyName) !== -1) {
-        typeLetter(keyName);
-      }
-  }
-});
-
 Promise.all(Array.from({length: PARTS}, (_, i) => i).map(getHintMatrix)).then(
   (hintMatrixParts) => {
     for (const part of hintMatrixParts) {
@@ -1950,4 +1934,19 @@ Promise.all(Array.from({length: PARTS}, (_, i) => i).map(getHintMatrix)).then(
     }
     const states = new Array(COLUMNS.length).fill('tbd');
     showWord('tares', states);
+    document.addEventListener('keydown', (event) => {
+      const keyName = event.key;
+      switch (keyName) {
+        case 'Backspace':
+          typeBackSpace();
+          break;
+        case 'Enter':
+          submit();
+          break;
+        default:
+          if (keyName.length === 1 && CHARACTERS.indexOf(keyName) !== -1) {
+            typeLetter(keyName);
+          }
+      }
+    });
   });
