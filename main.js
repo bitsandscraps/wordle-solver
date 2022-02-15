@@ -1945,6 +1945,7 @@ Promise.all(Array.from({length: PARTS}, (_, i) => i).map(getHintMatrix)).then(
       key.onclick = () => void typeKeyboard(key.getAttribute('data-key'));
     }
     document.getElementById('loader').style.display = "none";
+    document.getElementById('loader-container').style.display = "none";
     document.getElementById('board').style.opacity = 1;
     document.getElementsByTagName('game-keyboard')[0].style.opacity = 1;
     const states = new Array(COLUMNS.length).fill('tbd');

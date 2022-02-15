@@ -92,11 +92,29 @@
             --key-bg-absent: var(--color-absent);
         }
 
-        #loader {
+        #loader-container {
             position: absolute;
             left: 50%;
             top: 50%;
             z-index: 1;
+            width: 200px;
+            height: 200px;
+            margin: -100px;
+            background-color: white;
+            border: solid black 2px;
+            border-radius: 25px;
+            align-items: center;
+            justify-content: center;
+            display: flex;
+            font-family: inherit;
+            font-weight: bold;
+        }
+
+        #loader {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            z-index: 2;
             width: 120px;
             height: 120px;
             margin: -76px 0 0 -76px;
@@ -374,6 +392,7 @@
     </style>
 </head>
 <body>
+    <div id="loader-container"> <p>LOADING</p> </div>
     <div id="loader"></div>
     <div id='game'>
         <header>
