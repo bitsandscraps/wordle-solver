@@ -1665,8 +1665,8 @@ function tileClick(tile) {
 }
 
 function toast(row, message) {
-  let div = document.getElementById('row' + row);
-  let toaster = document.getElementById('toaster');
+  const div = document.getElementById('row' + row);
+  const toaster = document.getElementById('toaster');
   div.setAttribute('invalid', 'invalid');
   toaster.className = 'show';
   toaster.innerHTML = message;
@@ -1772,7 +1772,7 @@ function parseRow(row) {
   let hint = 0;
   let word = '';
   for (const column of COLUMNS) {
-    let tile = document.getElementById('tile' + row + column);
+    const tile = document.getElementById('tile' + row + column);
     const letter = tile.innerHTML;
     if (letter === '') {
       throw new Error('Not enough letters', {cause: row});
@@ -1907,31 +1907,46 @@ function typeKeyboard(key) {
   }
 }
 
+function createBord() {
+  const board = document.getElementById('board');
+  for (const row of ROWS) {
+    const div = document.createElement('div');
+    div.setAttribute('class', 'game-row');
+    div.setAttribute('id', 'row' + row);
+    for (const column of COLUMNS) {
+      const tile = document.createElement('div');
+      const id = 'tile' + row + column
+      tile.setAttribute('class', 'tile');
+      tile.setAttribute('id', id);
+      tile.setAttribute('data-state', 'empty');
+      div.append(tile);
+    }
+    board.append(div);
+  }
+  for (const key of document.getElementsByTagName('button')) {
+    key.setAttribute('data-state', 'tbd');
+  }
+}
+
+createBord();
+
 Promise.all(Array.from({length: PARTS}, (_, i) => i).map(getHintMatrix)).then(
   (hintMatrixParts) => {
     for (const part of hintMatrixParts) {
       hintMatrix = hintMatrix.concat(part);
     }
-    const board = document.getElementById('board');
     for (const row of ROWS) {
-      const div = document.createElement('div');
-      div.setAttribute('class', 'game-row');
-      div.setAttribute('id', 'row' + row);
       for (const column of COLUMNS) {
-        const tile = document.createElement('div');
-        const id = 'tile' + row + column
-        tile.setAttribute('class', 'tile');
-        tile.setAttribute('id', id);
-        tile.setAttribute('data-state', 'empty');
+        const tile = document.getElementById('tile' + row + column);
         tile.onclick = () => void tileClick(tile);
-        div.append(tile);
       }
-      board.append(div);
     }
     for (const key of document.getElementsByTagName('button')) {
-      key.setAttribute('data-state', 'tbd');
       key.onclick = () => void typeKeyboard(key.getAttribute('data-key'));
     }
+    document.getElementById('loader').style.display = "none";
+    document.getElementById('board').style.opacity = 1;
+    document.getElementsByTagName('game-keyboard')[0].style.opacity = 1;
     const states = new Array(COLUMNS.length).fill('tbd');
     showWord('tares', states);
     document.addEventListener('keydown', (event) => {
