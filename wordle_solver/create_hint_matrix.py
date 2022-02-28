@@ -6,7 +6,7 @@ import numpy as np
 from tqdm import tqdm
 
 from assets import VALID_WORDS
-from solver_entropy import compute_hint
+from solver import compute_hint
 
 
 def build_argument_parser() -> ArgumentParser:
